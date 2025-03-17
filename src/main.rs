@@ -1,10 +1,11 @@
+use core::error::Error;
 use num::complex::Complex64;
+use plotters::chart::ChartBuilder;
+use plotters::prelude::{BitMapBackend, IntoDrawingArea, IntoSegmentedCoord};
+use plotters::series::Histogram;
+use plotters::style::{Color, RED, WHITE};
 use std::{f64::consts::PI, vec};
-use plotly::box_plot::{BoxMean, BoxPoints};
-use plotly::common::{ErrorData, ErrorType, Line, Marker, Mode, Orientation, Title};
-use plotly::histogram::{self, Bins, Cumulative, HistFunc, HistNorm};
-use plotly::layout::{Axis, BarMode, BoxMode, Layout, Margin};
-use plotly::{Bar, BoxPlot, Histogram, Plot, color::{NamedColor, Rgb, Rgba}, Scatter};
+
 fn dft(input: &[f64]) -> Vec<Complex64> {
     let n = input.len();
     println!("{:?}", n);
@@ -84,7 +85,7 @@ fn fft(signal: &mut [Complex64]) {
     }
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     let a = vec![0.0, 1.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0];
     println!("{:?}", dft(&a));
 
@@ -101,15 +102,37 @@ fn main() {
     fft(&mut c);
     println!("{:?}", c);
 
+    let root = BitMapBackend::new("./plot.png", (640, 480)).into_drawing_area();
 
-    // let samples = 
-    
-    // let trace = Histogram::new(
-    //     (0..(c.len())).collect::<Vec<usize>>(),
-    //     // c.iter().map(|x| (x.re*x.re + x.im*x.im).sqrt()).collect::<Vec<f64>>(),
-    // );
-    let trace = histogram::Histogram::new_xy((0..(c.len())).map(|x| x as f64).collect::<Vec<f64>>(), c.iter().map(|x| (x.re*x.re + x.im*x.im).sqrt()).collect::<Vec<f64>>());
-    let mut plot = Plot::new();
-    plot.add_trace(trace);
-    plot.show();
+    root.fill(&WHITE)?;
+
+    let mut chart = ChartBuilder::on(&root)
+        .x_label_area_size(35)
+        .y_label_area_size(40)
+        .margin(5)
+        .caption("FFT", ("sans-serif", 50.0))
+        .build_cartesian_2d((0u32..c.len() as u32).into_segmented(), 0f64..10f64)?;
+
+    chart
+        .configure_mesh()
+        .disable_x_mesh()
+        .disable_y_mesh()
+        .bold_line_style(WHITE.mix(0.3))
+        .y_desc("|Cn|")
+        .x_desc("n")
+        .axis_desc_style(("sans-serif", 15))
+        .draw()?;
+
+    let data = c
+        .iter()
+        .map(|complex| (complex.re * complex.re + complex.im * complex.im).sqrt())
+        .collect::<Vec<_>>();
+
+    chart.draw_series(
+        Histogram::vertical(&chart)
+            .style(RED.mix(0.5).filled())
+            .data(data.iter().enumerate().map(|(i, x)| (i as u32, *x))),
+    )?;
+
+    Ok(())
 }
