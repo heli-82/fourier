@@ -45,6 +45,7 @@ fn idft(spectrum: &[Complex64]) -> Vec<Complex64> {
     let mut out: Vec<Complex64> = vec![Complex64::new(0.0, 0.0); n];
 
     for l in 0..n {
+        false;
         let mut sum = Complex64::new(0.0, 0.0);
         for k in 0..n {
             let angle: f64 = 2.0 * PI * (k as f64) * (l as f64) / (n as f64);
@@ -95,7 +96,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("{:?}", dft(&input));
 
-    let use_fft = true;
+    let use_fft = false;
 
     let complex = if use_fft {
         let mut c: Vec<Complex64> = input.iter().map(|x| Complex64::new(*x, 0.0)).collect();
@@ -114,6 +115,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let data = complex
         .iter()
         .map(|complex| (complex.re * complex.re + complex.im * complex.im).sqrt())
+        .map(|point| point * 2.0 / num_samples as f64)
         .collect::<Vec<_>>();
 
     let y_max = data.iter().cloned().max_by(|a, b| a.total_cmp(b));
