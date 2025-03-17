@@ -1,4 +1,5 @@
 use core::error::Error;
+use core::f64;
 use num::complex::Complex64;
 use plotters::chart::ChartBuilder;
 use plotters::prelude::{BitMapBackend, IntoDrawingArea, IntoSegmentedCoord};
@@ -86,32 +87,46 @@ fn fft(signal: &mut [Complex64]) {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let a = vec![0.0, 1.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0];
-    println!("{:?}", dft(&a));
+    let num_samples = 100;
 
-    /*let mut b: Vec<Complex64> = vec![
-        Complex64::new(1.0, 0.0),
-        Complex64::new(0.0, 0.0),
-        Complex64::new(1.0, 0.0),
-        Complex64::new(0.0, 0.0),
-    ];
-    fft(&mut b);
-    println!("{:?}", b);*/
+    let input = (0..num_samples)
+        .map(|i| (2.0 * PI * i as f64 / num_samples as f64).sin())
+        .collect::<Vec<_>>();
 
-    let mut c: Vec<Complex64> = a.iter().map(|x| Complex64::new(*x, 0.0)).collect();
-    fft(&mut c);
-    println!("{:?}", c);
+    println!("{:?}", dft(&input));
 
-    let root = BitMapBackend::new("./plot.png", (640, 480)).into_drawing_area();
+    let use_fft = true;
+
+    let complex = if use_fft {
+        let mut c: Vec<Complex64> = input.iter().map(|x| Complex64::new(*x, 0.0)).collect();
+        fft(&mut c);
+        c
+    } else {
+        dft(&*input)
+    };
+
+    println!("{:?}", complex);
+
+    let root = BitMapBackend::new("./plot.png", (640 * 2, 480 * 2)).into_drawing_area();
 
     root.fill(&WHITE)?;
+
+    let data = complex
+        .iter()
+        .map(|complex| (complex.re * complex.re + complex.im * complex.im).sqrt())
+        .collect::<Vec<_>>();
+
+    let y_max = data.iter().cloned().max_by(|a, b| a.total_cmp(b));
 
     let mut chart = ChartBuilder::on(&root)
         .x_label_area_size(35)
         .y_label_area_size(40)
         .margin(5)
-        .caption("FFT", ("sans-serif", 50.0))
-        .build_cartesian_2d((0u32..c.len() as u32).into_segmented(), 0f64..10f64)?;
+        .caption(if use_fft { "FFT" } else { "DFT" }, ("sans-serif", 50.0))
+        .build_cartesian_2d(
+            (0u32..complex.len() as u32).into_segmented(),
+            0f64..y_max.unwrap_or(10.0),
+        )?;
 
     chart
         .configure_mesh()
@@ -122,11 +137,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         .x_desc("n")
         .axis_desc_style(("sans-serif", 15))
         .draw()?;
-
-    let data = c
-        .iter()
-        .map(|complex| (complex.re * complex.re + complex.im * complex.im).sqrt())
-        .collect::<Vec<_>>();
 
     chart.draw_series(
         Histogram::vertical(&chart)
